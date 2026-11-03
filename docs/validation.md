@@ -105,6 +105,18 @@ Both samples use a two-second warmup and no inspector selection. Native desktop 
 
 See [appearance notes](appearance.md) for exact color values and measured contrast ratios.
 
+## Logo and desktop-entry follow-up — 2026-11-03
+
+- Added an original SVG mark (mint terminal prompt + coral stop square on a blue-green tile), committed 16–512 px PNGs, and embedded 16–256 px icons in Qt resources. The running monitor needs no SVG renderer or icon-theme lookup for its own mark.
+- Release and ASan/UBSan runs passed all three suites: **14 core, 7 UI, and 5 installer test functions**; the confirmation test also has separate light/dark datasets. The same sanitizer leak-detection limitation still applies.
+- Every embedded icon size was checked for resource presence, dimensions, outer transparency, stop-square color, and a nonempty window icon. Synthetic light/dark screenshots were regenerated with the new logo.
+- A production build without tests was installed into a temporary prefix containing spaces. Its generated desktop entry passed `desktop-file-validate`; its installed binary ran in demo mode from a different working directory.
+- The authorized current-user installation placed the binary in `~/.local/bin`, logo assets under `~/.local/share/icons/hicolor`, an application-menu entry under `~/.local/share/applications`, and **Codex Killer.desktop** in the configured desktop directory. No system-wide files, autostart entries, services, or Codex settings were changed.
+- The shortcut is executable (0755), and GIO reports both execution permission and trusted metadata. `Exec`, `TryExec`, and `Icon` point to absolute installed paths. The user's existing `codex-desktop.desktop` entry was preserved.
+- Launching the actual desktop shortcut through GIO started the installed executable and produced a visible X11 window with `WM_CLASS=codex-killer` and a `_NET_WM_ICON` property. The window was left open for the user. No real Codex process was terminated and no real-session screenshot was saved or published.
+
+The installer adds no runtime component to the monitor. Rebuild and rerun it to update the installed copy. See [logo and desktop integration](branding.md).
+
 ## Publication checks
 
 - The repository was created as **public** under the default GitHub account: [M1racleShih/codex-killer](https://github.com/M1racleShih/codex-killer).

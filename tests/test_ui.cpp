@@ -1,8 +1,10 @@
 #include "window.h"
 #include "appearance.h"
+#include "branding.h"
 #include <cmath>
 #include <QtTest>
 #include <QCheckBox>
+#include <QFile>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -25,6 +27,20 @@ class UiTests : public QObject {
 private slots:
     void initTestCase() { originalPalette = QApplication::palette(); }
     void cleanup() { QApplication::setPalette(originalPalette); }
+    void embeddedLogoWorksAtEverySize() {
+        const auto icon = branding::icon();
+        QVERIFY(!icon.isNull());
+        for (const int size : {16, 24, 32, 48, 64, 128, 256}) {
+            QVERIFY(QFile::exists(QString(":/branding/icon-%1.png").arg(size)));
+            const auto image = icon.pixmap(size, size).toImage();
+            QVERIFY(!image.isNull());
+            QCOMPARE(image.size(), QSize(size, size));
+            QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
+            QCOMPARE(image.pixelColor(size * 42 / 64, size / 2), QColor("#f18c81"));
+        }
+        Window w("/nonexistent", true);
+        QVERIFY(!w.windowIcon().isNull());
+    }
     void semanticColorsRemainReadable() {
         for (const bool dark : {false, true}) {
             const auto c = appearance::colors(dark);

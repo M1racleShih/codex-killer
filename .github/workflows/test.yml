@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Qt dependencies
-        run: sudo apt-get update && sudo apt-get install -y qtbase5-dev libqt5sql5-sqlite
+        run: sudo apt-get update && sudo apt-get install -y qtbase5-dev libqt5sql5-sqlite desktop-file-utils
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
@@ -24,3 +24,10 @@ jobs:
           ./build/codex-killer --demo --demo-appearance light --demo-screenshot /tmp/codex-killer-light.png --quit-after-ms 1000
           ./build/codex-killer --demo --demo-appearance dark --demo-screenshot /tmp/codex-killer-dark.png --quit-after-ms 1000
           test -s /tmp/codex-killer-light.png && test -s /tmp/codex-killer-dark.png
+      - name: Validate user installation and desktop shortcut
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python3 tools/install-desktop.py --build-dir build --prefix "$RUNNER_TEMP/codex killer" --desktop --desktop-dir "$RUNNER_TEMP/desktop"
+          desktop-file-validate "$RUNNER_TEMP/desktop/Codex Killer.desktop"
+          "$RUNNER_TEMP/codex killer/bin/codex-killer" --demo --quit-after-ms 1000

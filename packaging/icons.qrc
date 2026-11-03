@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/branding">
+    <file alias="icon-16.png">icons/16/codex-killer.png</file>
+    <file alias="icon-24.png">icons/24/codex-killer.png</file>
+    <file alias="icon-32.png">icons/32/codex-killer.png</file>
+    <file alias="icon-48.png">icons/48/codex-killer.png</file>
+    <file alias="icon-64.png">icons/64/codex-killer.png</file>
+    <file alias="icon-128.png">icons/128/codex-killer.png</file>
+    <file alias="icon-256.png">icons/256/codex-killer.png</file>
+  </qresource>
+</RCC>

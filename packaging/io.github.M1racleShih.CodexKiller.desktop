@@ -8,3 +8,5 @@ Terminal=false
 Categories=System;Monitor;
 Keywords=Codex;OpenAI;Processes;Memory;Monitor;
 StartupWMClass=codex-killer
+StartupNotify=true
+X-Codex-Killer-Managed=true

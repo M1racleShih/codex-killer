@@ -1,5 +1,6 @@
 #include "window.h"
 #include "appearance.h"
+#include "branding.h"
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
@@ -150,17 +151,8 @@ void MemoryChart::paintEvent(QPaintEvent *) {
 Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     setObjectName("codexWindow");
     setWindowTitle(demo ? "Codex Killer — Demo (actions disabled)" : "Codex Killer");
-    // A tiny procedural icon avoids mapping a large desktop icon-theme cache at startup.
-    QPixmap icon(64, 64); icon.fill(Qt::transparent);
-    {
-        QPainter painter(&icon); painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(Qt::NoPen); painter.setBrush(QColor("#20384b"));
-        painter.drawRoundedRect(QRectF(4, 4, 56, 56), 12, 12);
-        painter.setPen(QPen(Qt::white, 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        painter.drawLine(16, 22, 26, 32); painter.drawLine(26, 32, 16, 42); painter.drawLine(33, 42, 48, 42);
-        painter.setPen(Qt::NoPen); painter.setBrush(QColor("#ed9276")); painter.drawEllipse(QPointF(47, 17), 6, 6);
-    }
-    setWindowIcon(QIcon(icon));
+    const auto icon = branding::icon();
+    setWindowIcon(icon);
     resize(1280, 900);
     setMinimumSize(780, 600);
     auto central = new QWidget;
@@ -172,7 +164,12 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     brand->setObjectName("brandHeader");
     auto brandLayout = new QHBoxLayout(brand);
     brandLayout->setContentsMargins(20, 16, 20, 16);
-    auto mark = new QLabel; mark->setPixmap(icon.scaled(42, 42, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    auto mark = new QLabel;
+    const auto ratio = devicePixelRatioF();
+    auto markImage = icon.pixmap(qRound(42 * ratio), qRound(42 * ratio));
+    markImage.setDevicePixelRatio(ratio);
+    mark->setPixmap(markImage);
+    mark->setAccessibleName("Codex Killer logo: terminal prompt and stop square");
     brandLayout->addWidget(mark); brandLayout->addSpacing(8);
     auto titles = new QVBoxLayout; titles->setSpacing(4);
     auto heading = new QLabel("Codex Killer"); heading->setObjectName("brandTitle");

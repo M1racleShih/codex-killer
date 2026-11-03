@@ -1,3 +1,5 @@
+<img src="packaging/icons/128/codex-killer.png" alt="Codex Killer logo: terminal prompt and stop square" width="88" height="88">
+
 # Codex Killer
 
 **Know what is running. Keep memory under control.**
@@ -52,12 +54,15 @@ ctest --test-dir build --output-on-failure
 ./build/codex-killer
 ```
 
-Optional user-local installation, including the application-menu entry:
+Optional current-user installation, including an application-menu entry and a desktop shortcut:
 
 ```sh
-cmake --install build --prefix "$HOME/.local"
-# Ensure ~/.local/bin is in PATH, then open “Codex Killer” from your app menu.
+python3 tools/install-desktop.py --build-dir build --desktop
 ```
+
+The installer copies the built application to `~/.local/bin`, installs its logo, and writes **Codex Killer.desktop** into the desktop directory reported by `xdg-user-dir`. Launchers use absolute executable/icon paths, so they do not depend on the GUI session's `PATH` or the source repository's location. No terminal, sudo, autostart, or daemon is needed. Omit `--desktop` to install only the application-menu entry. Existing unrecognized launchers are not overwritten.
+
+After rebuilding an update, run the installer again to update the installed copy. See [logo and desktop integration](docs/branding.md) for asset regeneration, custom prefixes, and validation. Python 3 is used only by the optional installer/development tooling, not by the running monitor.
 
 For a production build without test dependencies or fixtures, add `-DBUILD_TESTING=OFF` when configuring. The binary uses shared system Qt libraries; it is not a standalone static package.
 
@@ -150,7 +155,7 @@ QT_QPA_PLATFORM=offscreen ./build/codex-killer --demo \
   --demo-screenshot /tmp/codex-killer-demo.png --quit-after-ms 1000
 ```
 
-Read [design and safety](docs/design.md), [appearance](docs/appearance.md), [validation](docs/validation.md), and [contributor instructions](AGENTS.md) before changing discovery or termination.
+Read [design and safety](docs/design.md), [appearance](docs/appearance.md), [logo and desktop integration](docs/branding.md), [validation](docs/validation.md), and [contributor instructions](AGENTS.md) before changing discovery or termination.
 
 ## Privacy and security
 

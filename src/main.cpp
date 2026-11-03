@@ -1,6 +1,7 @@
 #include "core.h"
 #include "window.h"
 #include "appearance.h"
+#include "branding.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
@@ -65,6 +66,8 @@ int main(int argc, char **argv) {
         }
         QApplication::setPalette(appearance::palette(mode == "dark"));
     }
+    QGuiApplication::setDesktopFileName(branding::desktopId);
+    QApplication::setWindowIcon(branding::icon());
     Window window(home, parser.isSet("demo"));
     window.show();
     if (parser.isSet("demo-screenshot")) {

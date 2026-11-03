@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="12" fill="#20384b"/><path d="M16 22l10 10-10 10m17 0h15" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="47" cy="17" r="6" fill="#ed9276"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="codex-killer-logo-title codex-killer-logo-desc">
+  <title id="codex-killer-logo-title">Codex Killer</title>
+  <desc id="codex-killer-logo-desc">A mint terminal prompt and a coral stop square on a deep blue-green tile: inspect a session, then choose when it stops.</desc>
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="#173e4c"/>
+  <path d="M144 192 216 256 144 320" fill="none" stroke="#b4f0e3" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="272" y="192" width="128" height="128" rx="24" fill="#f18c81"/>
+</svg>
