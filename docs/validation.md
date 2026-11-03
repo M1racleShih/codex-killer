@@ -51,6 +51,7 @@ Leak detection is disabled for the Qt/offscreen sanitizer run; this is not a lea
 Other local checks:
 
 - Desktop file validation passed.
+- A separate Release configuration with `-DBUILD_TESTING=OFF` built successfully. Installing into a temporary prefix inside the project's ignored build directory installed the executable, desktop entry, and icon; the installed binary's snapshot and desktop-file validation passed. No system-wide or user-local installation was performed.
 - Headless `--snapshot` runs without a graphical application object.
 - The synthetic demo renders and saves a screenshot without real session data.
 - A normal X11/KDE window opened and closed during the desktop benchmark.
@@ -78,6 +79,14 @@ python3 tools/benchmark.py --hosts 4 --seconds 12
 # Opens a temporary visible window; requires a working X11 display.
 python3 tools/benchmark.py --platform xcb --hosts 4 --seconds 12
 ```
+
+## Publication checks
+
+- The repository was created as **public** under the default GitHub account: [M1racleShih/codex-killer](https://github.com/M1racleShih/codex-killer).
+- Repository-local Git author settings use the GitHub account name and account email; global Git settings were not changed.
+- Generated build artifacts and real Codex data were excluded. Staged source files were checked for private absolute paths and common credential patterns; the published screenshot uses synthetic data only.
+- The initial implementation commit passed [GitHub Actions on Ubuntu 24.04](https://github.com/M1racleShih/codex-killer/actions/runs/41609086573): configure, build, both test suites, and the headless snapshot smoke test.
+- Local Markdown links resolved successfully.
 
 ## Remaining limitations
 
