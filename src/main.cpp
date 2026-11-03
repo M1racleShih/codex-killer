@@ -1,5 +1,6 @@
 #include "core.h"
 #include "window.h"
+#include "appearance.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
@@ -29,6 +30,7 @@ int main(int argc, char **argv) {
     parser.addOption({"codex-home", "Codex home (default: CODEX_HOME or ~/.codex; per-process CODEX_HOME is also respected).", "path"});
     parser.addOption({"snapshot", "Print one read-only JSON snapshot, without opening a window."});
     parser.addOption({"demo", "Show synthetic demonstration data. Kill actions are disabled."});
+    parser.addOption({"demo-appearance", "Force light or dark appearance for synthetic demos only.", "light|dark"});
     parser.addOption({"quit-after-ms", "Exit after a duration (for smoke tests).", "milliseconds"});
     parser.addOption({"demo-screenshot", "Save a synthetic demo window screenshot; requires --demo.", "path"});
     parser.process(*app);
@@ -54,6 +56,14 @@ int main(int argc, char **argv) {
     if (parser.isSet("demo-screenshot") && !parser.isSet("demo")) {
         std::fprintf(stderr, "--demo-screenshot requires --demo; real session data is never captured automatically.\n");
         return 2;
+    }
+    if (parser.isSet("demo-appearance")) {
+        const auto mode = parser.value("demo-appearance");
+        if (!parser.isSet("demo") || (mode != "light" && mode != "dark")) {
+            std::fprintf(stderr, "--demo-appearance requires --demo and a value of light or dark.\n");
+            return 2;
+        }
+        QApplication::setPalette(appearance::palette(mode == "dark"));
     }
     Window window(home, parser.isSet("demo"));
     window.show();

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the monitor, not Codex. Uses disposable synthetic fixtures only."""
+"""Measure the monitor with disposable fixtures; existing hosts are observed read-only."""
 import argparse
 import json
 import os
@@ -63,6 +63,11 @@ def main():
                                        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             children.append(monitor)
             time.sleep(2)  # Warm up font/toolkit caches and the first sample.
+            # Report aggregate workload only; never print session IDs or working directories.
+            snapshot = json.loads(subprocess.check_output([args.binary, '--snapshot'], env=env))
+            observed_hosts = len(snapshot['hosts'])
+            observed_processes = sum(host['process_count'] for host in snapshot['hosts'])
+            del snapshot
             start = time.monotonic()
             baseline = metrics(monitor.pid)
             samples = []
@@ -73,6 +78,8 @@ def main():
             result = {
                 'platform': args.platform,
                 'synthetic_hosts': args.hosts,
+                'observed_hosts_at_start': observed_hosts,
+                'observed_processes_at_start': observed_processes,
                 'measurement_seconds': round(elapsed, 2),
                 'warmup_seconds': 2,
                 'cpu_percent_one_core': round((samples[-1]['cpu_seconds'] - baseline['cpu_seconds']) / elapsed * 100, 3),

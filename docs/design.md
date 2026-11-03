@@ -12,6 +12,8 @@ The program is one native Qt Widgets process with short-lived worker jobs. There
 | `src/terminate.cpp` | Identity-bound, confirmed host/target lists | Revalidate ownership and ancestry, acquire pidfds, request exit and escalate only confirmed processes |
 | `src/main.cpp` | CLI options | Start the window, read-only snapshot, or non-destructive demo |
 
+The window uses semantic light/dark colors and lightweight painted badges/traces; see [appearance](appearance.md) for the palette, contrast checks, and previews. It keeps native widgets and adds no rendering dependency or animation timer.
+
 The session hierarchy and the OS process hierarchy are different views. Logical sessions never contribute additional RSS. Descendants are assigned to the topmost discovered Codex host, preventing nested native/npm Codex processes from being counted twice in the global tree total.
 
 ## Sampling budget

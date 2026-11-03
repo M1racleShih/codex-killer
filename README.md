@@ -8,11 +8,13 @@ No Electron. No web server. No daemon. No telemetry.
 
 ![Codex Killer showing synthetic demonstration data](docs/demo.png)
 
+[Dark appearance preview](docs/demo-dark.png) · [Color and interaction notes](docs/appearance.md)
+
 > **Safety boundary:** several Codex sessions or subagents can share one OS process. Their memory cannot be reliably attributed individually, and they cannot be independently killed with OS signals. Codex Killer shows that shared relationship instead of inventing per-session memory figures or promising isolated termination.
 
 ## Features
 
-- Native C++17 / Qt Widgets window, system fonts, colors, and standard window controls.
+- Native C++17 / Qt Widgets window, system fonts and window controls, with semantic colors that follow the system's light/dark appearance.
 - Discover Codex processes owned by your current user, including standard npm launchers and native app-server hosts.
 - Expand host → logical session / subagent relationships and host → child-process trees.
 - Own RSS, process-tree RSS, relative memory bars, and a bounded 120-sample total-memory history.
@@ -63,6 +65,7 @@ For a production build without test dependencies or fixtures, add `-DBUILD_TESTI
 
 ```sh
 ./build/codex-killer --demo                  # Synthetic data; all kill actions disabled
+./build/codex-killer --demo --demo-appearance dark  # Reproducible dark preview only
 ./build/codex-killer --snapshot              # One read-only JSON sample; no window
 ./build/codex-killer --codex-home /path/to/.codex
 ```
@@ -121,12 +124,12 @@ Detailed memory is fetched asynchronously for only the inspected process and cac
 
 Sampling runs every two seconds, slows to ten seconds while minimized, and can be paused. Session-file reads are bounded, memory history and the in-window action log are bounded, and there is no watcher daemon or persistent monitoring database. Closing the window stops monitoring entirely.
 
-Short, warmed-up measurements on Ubuntu 24.04 / Qt 5.15.13 with four synthetic Codex hosts:
+Short, warmed-up measurements after the color refresh, on Ubuntu 24.04 / Qt 5.15.13: four synthetic hosts plus two other existing Codex hosts (six observed hosts total), sampled read-only. These eight-second samples are not a controlled before/after comparison.
 
 | Mode | Monitor RSS | Monitor PSS | CPU, one core |
 | --- | --- | --- | --- |
-| Normal X11/KDE desktop window | ~134 MiB | ~33 MiB | ~1.4% |
-| Qt offscreen test backend | ~56 MiB | ~18 MiB | ~0.75% |
+| Normal X11/KDE desktop window | ~136 MiB | ~33 MiB | ~1.1% |
+| Qt offscreen test backend | ~59 MiB | ~19 MiB | ~1.1% |
 
 RSS includes shared toolkit and desktop-integration pages. These are observed sample figures, **not a resource cap**; themes, display backends, process count, and metadata size affect overhead.
 
@@ -147,7 +150,7 @@ QT_QPA_PLATFORM=offscreen ./build/codex-killer --demo \
   --demo-screenshot /tmp/codex-killer-demo.png --quit-after-ms 1000
 ```
 
-Read [design and safety](docs/design.md), [validation](docs/validation.md), and [contributor instructions](AGENTS.md) before changing discovery or termination.
+Read [design and safety](docs/design.md), [appearance](docs/appearance.md), [validation](docs/validation.md), and [contributor instructions](AGENTS.md) before changing discovery or termination.
 
 ## Privacy and security
 

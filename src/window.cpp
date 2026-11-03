@@ -1,10 +1,12 @@
 #include "window.h"
+#include "appearance.h"
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QFrame>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
@@ -27,7 +29,7 @@
 
 using namespace scope;
 namespace {
-enum { RootRole = Qt::UserRole, SessionRole, ProcessRole, KeyRole, NumberRole };
+enum { RootRole = Qt::UserRole, SessionRole, ProcessRole, KeyRole, NumberRole, SemanticRole };
 class Item : public QTreeWidgetItem {
 public:
     using QTreeWidgetItem::QTreeWidgetItem;
@@ -48,9 +50,32 @@ public:
         if (!value.isValid()) return;
         const auto width = qMax(0, option.rect.width() - 10);
         const auto length = int(width * qMin(1.0, value.toDouble() / double(largest)));
-        auto color = option.palette.highlight().color();
+        auto color = appearance::colors(option.palette).memory;
         if (option.state & QStyle::State_Selected) color = option.palette.highlightedText().color();
-        painter->fillRect(option.rect.left() + 5, option.rect.bottom() - 3, length, 2, color);
+        painter->fillRect(option.rect.left() + 5, option.rect.bottom() - 5, length, 3, color);
+    }
+};
+class StateBadge : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        QStyleOptionViewItem opt(option); initStyleOption(&opt, index);
+        const auto text = opt.text; opt.text.clear();
+        const auto style = opt.widget ? opt.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+        if (text.isEmpty()) return;
+        const auto c = appearance::colors(opt.palette);
+        const bool selected = opt.state & QStyle::State_Selected;
+        const auto ink = selected ? opt.palette.highlightedText().color() : appearance::semantic(c, index.data(SemanticRole).toString());
+        const auto fill = selected ? opt.palette.highlight().color() : appearance::mix(ink, c.surface, c.dark ? 0.14 : 0.08);
+        QRect box = opt.rect.adjusted(7, 4, -7, -4);
+        box.setWidth(qMin(box.width(), opt.fontMetrics.horizontalAdvance(text) + 20));
+        painter->save(); painter->setRenderHint(QPainter::Antialiasing);
+        painter->setPen(Qt::NoPen); painter->setBrush(fill); painter->drawRoundedRect(box, 5, 5);
+        painter->setPen(ink); painter->setFont(opt.font);
+        painter->drawText(box.adjusted(10, 0, -6, 0), Qt::AlignLeft | Qt::AlignVCenter,
+            opt.fontMetrics.elidedText(text, Qt::ElideRight, qMax(0, box.width() - 16)));
+        painter->restore();
     }
 };
 QString stateName(char c) {
@@ -63,6 +88,15 @@ void numeric(QTreeWidgetItem *i, int col, double number, const QString &text) {
     i->setData(col, NumberRole, number);
     i->setText(col, text);
     i->setTextAlignment(col, Qt::AlignRight | Qt::AlignVCenter);
+}
+QString summaryText(const Snapshot &snapshot, const appearance::Colors &c) {
+    quint64 rss = 0; double cpu = 0; int observed = 0, related = 0, pids = 0;
+    for (const auto &g : snapshot.groups) {
+        rss += g.rss; cpu += g.cpu; pids += g.pids.size();
+        for (const auto &s : g.sessions) s.observed ? ++observed : ++related;
+    }
+    return QString("<span style='color:%1'><b>%2</b> hosts</span> &nbsp;·&nbsp; <b>%3</b> observed sessions &nbsp;·&nbsp; %4 related records &nbsp;·&nbsp; %5 processes &nbsp;·&nbsp; <span style='color:%6'><b>%7</b> tree RSS</span> &nbsp;·&nbsp; %8% CPU")
+        .arg(c.accent.name()).arg(snapshot.groups.size()).arg(observed).arg(related).arg(pids).arg(c.memory.name()).arg(bytes(rss)).arg(cpu, 0, 'f', 1);
 }
 }
 MemoryChart::MemoryChart(QWidget *parent) : QWidget(parent) {
@@ -80,29 +114,41 @@ void MemoryChart::paintEvent(QPaintEvent *) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     const auto pal = palette();
-    p.fillRect(rect(), pal.base());
-    p.setPen(pal.text().color());
-    p.drawText(12, 22, "Process-tree RSS · last 120 samples");
+    const auto c = appearance::colors(pal);
+    p.fillRect(rect(), c.surface);
+    p.setPen(c.muted);
+    p.drawText(16, 24, "MEMORY / TREE RSS");
+    auto valueFont = font(); valueFont.setBold(true); valueFont.setPointSize(valueFont.pointSize() + 5);
+    p.setFont(valueFont); p.setPen(c.memory);
+    p.drawText(16, 53, points.isEmpty() ? "—" : bytes(points.last().second));
+    p.setFont(font()); p.setPen(c.muted);
+    p.drawText(QRect(16, 35, width() - 32, 24), Qt::AlignRight | Qt::AlignVCenter, "120 samples");
     quint64 max = 1024 * 1024;
     for (const auto &point : points) max = qMax(max, point.second);
-    p.drawText(QRect(12, 7, width() - 24, 20), Qt::AlignRight, bytes(max));
-    const QRectF plot(12, 34, qMax(1, width() - 24), qMax(1, height() - 48));
-    p.setPen(pal.mid().color());
-    p.drawLine(plot.bottomLeft(), plot.bottomRight());
+    const QRectF plot(16, 70, qMax(1, width() - 32), qMax(1, height() - 90));
+    p.setPen(QPen(c.border, 1, Qt::DotLine));
+    for (int n = 0; n < 3; ++n) {
+        const auto y = plot.bottom() - plot.height() * n / 2;
+        p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
+    }
     if (points.isEmpty()) return;
     const double start = points.first().first;
     const double span = qMax(1.0, points.last().first - start);
     QPainterPath path;
     for (int i = 0; i < points.size(); ++i) {
         const QPointF pt(plot.left() + plot.width() * (points[i].first - start) / span,
-                         plot.bottom() - plot.height() * double(points[i].second) / double(max));
+                         plot.bottom() - plot.height() * double(points[i].second) / (double(max) * 1.12));
         if (i == 0) path.moveTo(pt); else path.lineTo(pt);
     }
-    p.setPen(QPen(pal.highlight().color(), 2));
+    auto area = path;
+    area.lineTo(plot.bottomRight()); area.lineTo(plot.bottomLeft()); area.closeSubpath();
+    p.fillPath(area, appearance::mix(c.memory, c.surface, c.dark ? 0.18 : 0.09));
+    p.setPen(QPen(c.memory, 2.5));
     p.drawPath(path);
     if (points.size() == 1) p.drawEllipse(path.currentPosition(), 2.0, 2.0);
 }
 Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
+    setObjectName("codexWindow");
     setWindowTitle(demo ? "Codex Killer — Demo (actions disabled)" : "Codex Killer");
     // A tiny procedural icon avoids mapping a large desktop icon-theme cache at startup.
     QPixmap icon(64, 64); icon.fill(Qt::transparent);
@@ -115,21 +161,34 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
         painter.setPen(Qt::NoPen); painter.setBrush(QColor("#ed9276")); painter.drawEllipse(QPointF(47, 17), 6, 6);
     }
     setWindowIcon(QIcon(icon));
-    resize(1220, 820);
+    resize(1280, 900);
     setMinimumSize(780, 600);
     auto central = new QWidget;
+    central->setObjectName("controlCenter");
     auto layout = new QVBoxLayout(central);
     layout->setContentsMargins(20, 16, 20, 16);
     layout->setSpacing(12);
-    auto heading = new QLabel("Codex Killer");
+    auto brand = new QFrame;
+    brand->setObjectName("brandHeader");
+    auto brandLayout = new QHBoxLayout(brand);
+    brandLayout->setContentsMargins(20, 16, 20, 16);
+    auto mark = new QLabel; mark->setPixmap(icon.scaled(42, 42, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    brandLayout->addWidget(mark); brandLayout->addSpacing(8);
+    auto titles = new QVBoxLayout; titles->setSpacing(4);
+    auto heading = new QLabel("Codex Killer"); heading->setObjectName("brandTitle");
     auto titleFont = heading->font(); titleFont.setPointSize(titleFont.pointSize() + 7); titleFont.setBold(true);
     heading->setFont(titleFont);
     auto subtitle = new QLabel("Know what is running. Keep memory under control.");
-    layout->addWidget(heading);
-    layout->addWidget(subtitle);
+    subtitle->setObjectName("brandSubtitle"); subtitle->setWordWrap(true);
+    titles->addWidget(heading); titles->addWidget(subtitle);
+    brandLayout->addLayout(titles, 1);
+    auto locality = new QLabel(demo ? "DEMO / READ-ONLY" : "LOCAL MONITOR");
+    locality->setObjectName("locality");
+    brandLayout->addWidget(locality);
+    layout->addWidget(brand);
     summary = new QLabel("Discovering owned Codex processes…");
     summary->setObjectName("summary");
-    summary->setTextFormat(Qt::PlainText);
+    summary->setTextFormat(Qt::RichText);
     auto summaryFont = summary->font(); summaryFont.setBold(true); summary->setFont(summaryFont);
     summary->setWordWrap(true);
     layout->addWidget(summary);
@@ -152,7 +211,7 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     stopSelected->setObjectName("killSelected"); stopAll->setObjectName("killAll");
     stopSelected->setToolTip("Confirm checked hosts and their child processes, then SIGTERM → SIGKILL.");
     stopAll->setToolTip("All discovered, unprotected hosts, including hosts hidden by the filter. Confirmation required.");
-    selection = new QLabel("0 hosts checked");
+    selection = new QLabel("0 hosts checked"); selection->setObjectName("selectionCount");
     actions->addWidget(select); actions->addWidget(clear); actions->addWidget(selection, 1);
     actions->addWidget(stopSelected); actions->addWidget(stopAll);
     layout->addLayout(actions);
@@ -165,6 +224,7 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     tree->setHeaderLabels({"Host / session / process", "PID", "Own RSS", "Tree RSS", "CPU", "Elapsed", "State / evidence"});
     tree->setAccessibleName("Codex hosts, logical sessions and child processes");
     tree->setItemDelegateForColumn(3, new MemoryBar(tree));
+    tree->setItemDelegateForColumn(6, new StateBadge(tree));
     tree->setAlternatingRowColors(true);
     tree->setUniformRowHeights(true);
     tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -193,7 +253,7 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     activity->setReadOnly(true); activity->setMaximumBlockCount(300);
     activity->setAccessibleName("Termination results");
     tabs->addTab(activity, "Action log");
-    split->addWidget(tabs); split->setSizes({440, 220});
+    split->addWidget(tabs); split->setSizes({460, 220});
     layout->addWidget(split, 1);
     setCentralWidget(central);
     auto fileMenu = menuBar()->addMenu("&File");
@@ -249,6 +309,11 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
         statusBar()->showMessage(message);
         updateButtons(); refresh();
     });
+    connect(qApp, &QApplication::paletteChanged, this, [this] {
+        applyAppearance();
+        if (!snapshot.groups.isEmpty()) rebuild();
+    });
+    applyAppearance();
     timer.setTimerType(Qt::VeryCoarseTimer);
     timer.start(2000);
     updateButtons();
@@ -260,6 +325,64 @@ Window::Window(QString home, bool demo) : home(std::move(home)), demo(demo) {
     } else refresh();
 }
 Window::~Window() { scanner.waitForFinished(); memoryReader.waitForFinished(); stopper.waitForFinished(); }
+void Window::applyAppearance() {
+    const auto c = appearance::colors(QApplication::palette());
+    QString css = R"(
+        QMainWindow#codexWindow { background: $canvas; color: $text; }
+        QWidget#controlCenter { background: $canvas; }
+        QFrame#brandHeader { background: $header; border-radius: 10px; }
+        QLabel#brandTitle { color: $headerText; background: transparent; }
+        QLabel#brandSubtitle { color: $headerMuted; background: transparent; }
+        QLabel#locality { color: $headerText; background: $headerBadge; border: 1px solid $headerMuted; border-radius: 5px; padding: 7px 10px; }
+        QLabel#summary { background: $accentTint; color: $text; border-left: 4px solid $accent; border-radius: 5px; padding: 12px 14px; }
+        QLabel#notice { color: $muted; padding: 2px 0; }
+        QLabel#selectionCount { color: $muted; padding-left: 6px; }
+        QLineEdit { background: $surface; color: $text; border: 1px solid $border; border-radius: 6px; padding: 8px 10px; selection-background-color: $selection; selection-color: $selectionText; }
+        QLineEdit:focus { border: 2px solid $accent; padding: 7px 9px; }
+        QPushButton { background: $surface; color: $text; border: 1px solid $border; border-radius: 6px; padding: 7px 12px; min-height: 16px; }
+        QPushButton:hover { background: $accentTint; border-color: $accent; }
+        QPushButton:pressed { background: $selection; }
+        QPushButton:focus { border: 2px solid $accent; padding: 6px 11px; }
+        QPushButton:disabled { color: $muted; background: $canvas; }
+        QPushButton#killSelected { color: $danger; border-color: $danger; background: $dangerTint; }
+        QPushButton#killSelected:hover { background: $dangerHover; }
+        QPushButton#killAll, QPushButton#confirmKill { color: white; background: $dangerFill; border-color: $dangerFill; }
+        QPushButton#killAll:hover, QPushButton#confirmKill:hover { background: $dangerPressed; }
+        QPushButton#killAll:pressed, QPushButton#confirmKill:pressed, QPushButton#killSelected:pressed { background: $dangerPressed; color: white; }
+        QPushButton#killAll:disabled, QPushButton#killSelected:disabled { color: $muted; background: $dangerTint; border-color: $border; }
+        QTreeWidget { background: $surface; alternate-background-color: $alternate; color: $text; border: 1px solid $border; border-radius: 6px; selection-background-color: $selection; selection-color: $selectionText; }
+        QTreeWidget::item { padding: 4px 2px; }
+        QTreeWidget::item:selected { background: $selection; color: $selectionText; }
+        QHeaderView::section { background: $canvas; color: $muted; border: none; border-bottom: 1px solid $border; padding: 7px 5px; }
+        QPlainTextEdit { background: $surface; color: $text; border: 1px solid $border; border-radius: 5px; padding: 8px; selection-background-color: $selection; selection-color: $selectionText; }
+        QTabWidget::pane { background: $surface; border: 1px solid $border; border-radius: 5px; }
+        QTabBar::tab { color: $muted; background: $canvas; padding: 9px 15px; border-bottom: 2px solid transparent; }
+        QTabBar::tab:selected { color: $accent; background: $surface; border-bottom-color: $accent; }
+        QTabBar::tab:focus { border: 1px solid $accent; }
+        QSplitter::handle { background: $canvas; height: 10px; }
+    )";
+    const QHash<QString, QColor> tokens{
+        {"canvas", c.canvas}, {"surface", c.surface}, {"text", c.text}, {"muted", c.muted}, {"border", c.border},
+        {"accent", c.accent}, {"accentTint", appearance::mix(c.accent, c.surface, c.dark ? 0.13 : 0.065)},
+        {"header", c.header}, {"headerText", c.headerText}, {"headerMuted", c.headerMuted},
+        {"headerBadge", appearance::mix(c.headerText, c.header, 0.07)},
+        {"selection", c.selection}, {"selectionText", c.selectionText},
+        {"danger", c.danger}, {"dangerFill", c.dangerFill},
+        {"dangerTint", appearance::mix(c.danger, c.surface, c.dark ? 0.12 : 0.055)},
+        {"dangerHover", appearance::mix(c.danger, c.surface, c.dark ? 0.2 : 0.1)},
+        {"dangerPressed", c.dangerFill.darker(115)},
+        {"alternate", appearance::mix(c.accent, c.surface, 0.035)}
+    };
+    // Longest names first so $accent never consumes the start of $accentTint.
+    auto keys = tokens.keys();
+    std::sort(keys.begin(), keys.end(), [](const QString &a, const QString &b) { return a.size() > b.size(); });
+    for (const auto &key : keys) css.replace('$' + key, tokens[key].name());
+    setStyleSheet(css);
+    setPalette(appearance::palette(c.dark));
+    search->setPalette(appearance::palette(c.dark));
+    if (snapshot.monotonic > 0) summary->setText(summaryText(snapshot, c));
+    chart->update();
+}
 void Window::closeEvent(QCloseEvent *event) {
     if (busyStop) { statusBar()->showMessage("Waiting for the confirmed termination operation to finish…"); event->ignore(); }
     else QMainWindow::closeEvent(event);
@@ -291,13 +414,9 @@ void Window::applySnapshot(const Snapshot &next) {
     auto bar = static_cast<MemoryBar *>(tree->itemDelegateForColumn(3));
     bar->largest = 1;
     for (const auto &g : snapshot.groups) bar->largest = qMax(bar->largest, g.rss);
-    quint64 rss = 0; double cpu = 0; int observed = 0, related = 0, pids = 0;
-    for (const auto &g : snapshot.groups) {
-        rss += g.rss; cpu += g.cpu; pids += g.pids.size();
-        for (const auto &s : g.sessions) s.observed ? ++observed : ++related;
-    }
-    summary->setText(QString("%1 hosts  ·  %2 observed sessions  ·  %3 related records  ·  %4 processes  ·  %5 tree RSS  ·  %6% CPU")
-        .arg(snapshot.groups.size()).arg(observed).arg(related).arg(pids).arg(bytes(rss)).arg(cpu, 0, 'f', 1));
+    quint64 rss = 0;
+    for (const auto &g : snapshot.groups) rss += g.rss;
+    summary->setText(summaryText(snapshot, appearance::colors(palette())));
     QString message;
     if (demo) message = "DEMO — synthetic data. All kill actions are disabled.";
     else if (snapshot.groups.isEmpty()) message = "No running Codex hosts found for your user. Start Codex normally; this view updates every 2 seconds.";
@@ -342,6 +461,8 @@ void Window::rebuild() {
         numeric(host, 4, g.cpu, QString::number(g.cpu, 'f', 1) + "%");
         numeric(host, 5, root.age, duration(root.age));
         host->setText(6, g.protectedRoot ? "Protected: contains this app/ancestor" : stateName(root.state));
+        host->setData(6, SemanticRole, g.protectedRoot ? "warning" : root.state == 'R' ? "running" : root.state == 'S' ? "sleeping" : "warning");
+        auto hostFont = host->font(0); hostFont.setBold(true); host->setFont(0, hostFont);
         QHash<QString, QTreeWidgetItem *> sessions;
         for (const auto &s : g.sessions) {
             auto i = new Item(host);
@@ -352,6 +473,7 @@ void Window::rebuild() {
             i->setText(1, "Shared"); i->setText(2, "Shared"); i->setText(3, "—");
             i->setText(4, "—"); i->setText(5, "—");
             i->setText(6, s.observed ? "Observed · " + (s.model.isEmpty() ? QString("model unknown") : s.model) : "Related · liveness unknown");
+            i->setData(6, SemanticRole, s.observed ? "observed" : "related");
             sessions.insert(s.id, i);
         }
         // Reparent only acyclic edges; malformed local metadata cannot create recursive trees.
@@ -376,6 +498,7 @@ void Window::rebuild() {
                 numeric(i, 1, pid, QString::number(pid)); numeric(i, 2, p.rss, bytes(p.rss));
                 i->setText(3, "—"); numeric(i, 4, p.cpu, QString::number(p.cpu, 'f', 1) + "%");
                 numeric(i, 5, p.age, duration(p.age)); i->setText(6, stateName(p.state));
+                i->setData(6, SemanticRole, p.state == 'R' ? "running" : p.state == 'S' ? "sleeping" : "warning");
                 rows.insert(pid, i);
             }
             for (const int pid : rows.keys()) {
@@ -493,6 +616,7 @@ void Window::stop(bool all) {
         QString(all ? "Kill all includes hosts hidden by your filter." : "Checked hosts include any checked rows hidden by your filter."));
     box.setDetailedText(plan.affected.join('\n'));
     const auto kill = box.addButton("Kill hosts", QMessageBox::DestructiveRole);
+    kill->setObjectName("confirmKill");
     const auto cancel = box.addButton(QMessageBox::Cancel);
     box.setDefaultButton(cancel); box.setEscapeButton(cancel);
     // Freeze sampling during the modal confirmation; the identity-bound plan never expands.
@@ -525,6 +649,10 @@ Snapshot demoSnapshot() {
             Session child; child.id = "00000000-0000-0000-0000-000000000003"; child.parent = session.id;
             child.title = "Check keyboard navigation"; child.nickname = "Accessibility reviewer"; child.role = "reviewer";
             child.model = "example-model"; child.observed = true; g.sessions << child;
+            Session recorded;
+            recorded.id = "00000000-0000-0000-0000-000000000004"; recorded.parent = session.id;
+            recorded.title = "Earlier review (recorded relationship)";
+            recorded.status = "Recorded edge only; liveness unknown"; g.sessions << recorded;
             Process helper; helper.id = {4201, 1100, uint(getuid()), "/usr/bin/node"}; helper.name = "node";
             helper.ppid = 4200; helper.rss = 64ULL << 20; helper.state = 'S'; helper.age = 100;
             s.processes.insert(4201, helper); g.pids << 4201; g.rss += helper.rss;

@@ -17,7 +17,7 @@ cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
 
-Both test executables passed: **14 core test cases + 3 UI test cases**, excluding Qt's initialization/cleanup cases.
+The initial implementation passed **14 core test cases + 3 UI test cases**, excluding Qt's initialization/cleanup cases. The color refresh below expands the UI coverage to six test functions, including both light/dark confirmation datasets.
 
 Covered behavior:
 
@@ -79,6 +79,31 @@ python3 tools/benchmark.py --hosts 4 --seconds 12
 # Opens a temporary visible window; requires a working X11 display.
 python3 tools/benchmark.py --platform xcb --hosts 4 --seconds 12
 ```
+
+## Color refresh follow-up — 2026-11-03
+
+The visual refresh adds a blue-green brand header, semantic state badges, a blue memory area trace, and red destructive actions. It introduces no package dependency, animation timer, blur, or shadow effect. The process/termination implementation is unchanged.
+
+Current validation:
+
+- Release tests: **14 core + 6 UI test functions passed**. Confirmation cancellation is exercised separately in light and dark appearances.
+- ASan/UBSan tests passed with the same leak-detection limitation documented above.
+- Automated contrast checks cover primary/secondary text, semantic colors and badge fills, the header, the summary memory value, selection text, and filled destructive buttons; each tested text pair is at least 4.5:1.
+- Simulated live Qt application-palette changes update both appearances while preserving the selected row and keeping demo kill actions disabled.
+- The 780×600 window test checks the actual window size and containment of search/kill controls. This is not an exhaustive large-font or screen-reader audit.
+- Both [light](demo.png) and [dark](demo-dark.png) synthetic screenshots were rendered and visually inspected. No real session information is present in either image.
+- Normal monitoring follows the Qt system palette. The forced appearance flag is restricted to synthetic demo mode.
+
+Follow-up resource samples use the updated aggregate-workload reporting in `tools/benchmark.py`. Four synthetic hosts were created; two other current-user Codex hosts were also present and were only observed read-only. No existing host was terminated. Thus this is **not** a controlled before/after benchmark against the earlier four-host-only table.
+
+| Backend | Observed hosts / processes at start | Measurement | Median RSS | Median PSS | Median USS | CPU, one core |
+| --- | --- | --- | --- | --- | --- | --- |
+| Qt offscreen | 6 / 20 | 8.02 s | 58.66 MiB | 18.67 MiB | 15.71 MiB | 1.12% |
+| Normal X11/KDE window | 6 / 22 | 8.04 s | 136.44 MiB | 33.25 MiB | 24.38 MiB | 1.12% |
+
+Both samples use a two-second warmup and no inspector selection. Native desktop memory remains dominated by Qt/desktop integration. The measurements support keeping the visual changes lightweight, but do not prove zero overhead or establish an upper resource bound.
+
+See [appearance notes](appearance.md) for exact color values and measured contrast ratios.
 
 ## Publication checks
 

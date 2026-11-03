@@ -3,5 +3,7 @@
 - [Project overview, build, and usage](../README.md)
 - [Design, evidence, and termination safety](design.md)
 - [Validation, performance, and limitations](validation.md)
-- [Synthetic demo screenshot](demo.png)
+- [Appearance, color roles, and interaction](appearance.md)
+- [Synthetic light preview](demo.png)
+- [Synthetic dark preview](demo-dark.png)
 - [Contributor instructions](../AGENTS.md)

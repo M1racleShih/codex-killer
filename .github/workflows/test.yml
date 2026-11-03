@@ -17,3 +17,10 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Headless snapshot smoke test
         run: ./build/codex-killer --snapshot
+      - name: Render synthetic light and dark previews
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          ./build/codex-killer --demo --demo-appearance light --demo-screenshot /tmp/codex-killer-light.png --quit-after-ms 1000
+          ./build/codex-killer --demo --demo-appearance dark --demo-screenshot /tmp/codex-killer-dark.png --quit-after-ms 1000
+          test -s /tmp/codex-killer-light.png && test -s /tmp/codex-killer-dark.png
