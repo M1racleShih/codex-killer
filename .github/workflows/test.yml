@@ -1,0 +1,19 @@
+name: Build and test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt dependencies
+        run: sudo apt-get update && sudo apt-get install -y qtbase5-dev libqt5sql5-sqlite
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build -j2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Headless snapshot smoke test
+        run: ./build/codex-killer --snapshot

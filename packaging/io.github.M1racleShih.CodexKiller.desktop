@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Codex Killer
+Comment=Track Codex sessions, inspect memory, and stop selected hosts safely
+Exec=codex-killer
+Icon=codex-killer
+Terminal=false
+Categories=System;Monitor;
+Keywords=Codex;OpenAI;Processes;Memory;Monitor;
+StartupWMClass=codex-killer
